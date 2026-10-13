@@ -745,6 +745,18 @@ function saveLog() {
 /* ═══════════════ スリップシート ═══════════════ */
 let relapseDayChoice = '0';   // '0'=今日 / '1'=昨日 / 'other'=日付指定
 
+/* 「いつ飲みましたか？」で選ばれた日を文字でも見せる。日付ピッカーは
+   開いただけで閉じてしまうことがあり、選んだつもりの日と実際に記録される日が
+   食い違う事故が起きるため、保存前に必ず目で確認できるようにしておく。 */
+function renderRelapseDatePreview() {
+  const el = $('#relapseDatePreview');
+  if (!el) return;
+  const ds = relapseDayChoice === 'other'
+    ? $('#relapseDate').value
+    : addDays(todayStr(), -Number(relapseDayChoice));
+  el.textContent = ds ? t('relapse.willRecord', { date: fmtDate(ds) }) : t('relapse.pickDate');
+}
+
 function openRelapseSheet() {
   relapseDayChoice = '0';
   $$('#relapseDaySeg .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.day === '0'));
@@ -752,6 +764,7 @@ function openRelapseSheet() {
   $('#relapseDate').value = '';
   $('#relapseDate').max = todayStr();
   $('#relapseNote').value = '';
+  renderRelapseDatePreview();
   openSheet('#relapseSheet');
 }
 
@@ -1525,13 +1538,18 @@ function init() {
     $$('#relapseDaySeg .seg-btn').forEach(x => x.classList.toggle('active', x === b));
     const other = relapseDayChoice === 'other';
     $('#relapseDateField').hidden = !other;
+    renderRelapseDatePreview();
     if (other) {
       const inp = $('#relapseDate');
-      if (!inp.value) inp.value = todayStr();
+      /* ここで今日の日付を入れてはいけない。日付ピッカーを開いただけで閉じた人が
+         「別の日」を選んだつもりのまま今日として記録されてしまうため、空のままにして
+         保存時に「日付を選んでください」で止める。 */
+      inp.max = todayStr();
       /* タップした流れでそのまま日付ピッカーを開く（対応ブラウザのみ） */
       try { inp.showPicker(); } catch (e) { inp.focus(); }
     }
   }));
+  ['change', 'input'].forEach(ev => $('#relapseDate').addEventListener(ev, renderRelapseDatePreview));
   $('#saveRelapseBtn').addEventListener('click', () => {
     let ds;
     if (relapseDayChoice === 'other') {
@@ -1556,7 +1574,9 @@ function init() {
       const inp = $('#exceptionDate');
       inp.min = exceptionDayChoice === 'future' ? addDays(todayStr(), 1) : '';
       inp.max = exceptionDayChoice === 'past' ? addDays(todayStr(), -1) : '';
-      inp.value = exceptionDayChoice === 'future' ? addDays(todayStr(), 1) : addDays(todayStr(), -1);
+      /* スリップシートと同じ理由で、ここでも日付を先に入れてしまわない。
+         過去と予定で選べる範囲が変わるので、切り替えたら必ず空に戻す。 */
+      inp.value = '';
       /* タップした流れでそのまま日付ピッカーを開く（対応ブラウザのみ） */
       try { inp.showPicker(); } catch (e) { inp.focus(); }
     }
